@@ -1,37 +1,127 @@
-import { useState } from 'react';
-import { AlertsTable } from '@/components/soc/AlertsTable';
-import { alerts } from '@/data/mockData';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { useEffect, useMemo, useState } from "react";
+import { AlertsTable } from "@/components/soc/AlertsTable";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Search, Filter, RefreshCw } from 'lucide-react';
-import { Severity, AlertStatus } from '@/types/soc';
+} from "@/components/ui/select";
+import { Search, Filter, RefreshCw } from "lucide-react";
+import { Severity, AlertStatus } from "@/types/soc";
+import { api } from "@/lib/api";
+
+/* =========================
+   Types aligned to backend
+   ========================= */
+type BackendAlert = {
+  id: string;
+  sender: string;
+  subject: string;
+  risk_score: number; // 0.0 – 1.0
+  verdict: string;
+  status: AlertStatus;
+  created_at: string;
+  analyst?: string | null;
+};
+
+type UiAlert = BackendAlert & {
+  severity: Severity;
+};
+
+/* =========================
+   Helpers
+   ========================= */
+function severityFromScore(score: number): Severity {
+  if (score < 0.3) return "COLD";
+  if (score < 0.75) return "WARM";
+  return "HOT";
+}
 
 export default function Alerts() {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [severityFilter, setSeverityFilter] = useState<Severity | 'ALL'>('ALL');
-  const [statusFilter, setStatusFilter] = useState<AlertStatus | 'ALL'>('ALL');
+  const [alerts, setAlerts] = useState<UiAlert[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Filter out COLD alerts - they belong in Logs
-  const nonColdAlerts = alerts.filter(a => a.severity !== 'COLD');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [severityFilter, setSeverityFilter] = useState<Severity | "ALL">("ALL");
+  const [statusFilter, setStatusFilter] = useState<AlertStatus | "ALL">("ALL");
 
-  const filteredAlerts = nonColdAlerts.filter((alert) => {
-    const matchesSearch =
-      alert.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      alert.sender.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesSeverity = severityFilter === 'ALL' || alert.severity === severityFilter;
-    const matchesStatus = statusFilter === 'ALL' || alert.status === statusFilter;
-    return matchesSearch && matchesSeverity && matchesStatus;
-  });
+  /* =========================
+     Fetch alerts from backend
+     ========================= */
+  const fetchAlerts = async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-  const openCount = nonColdAlerts.filter(a => a.status === 'OPEN').length;
-  const hotOpenCount = nonColdAlerts.filter(a => a.severity === 'HOT' && a.status === 'OPEN').length;
+      const res = await api.get<{ data: BackendAlert[] }>("/alerts");
+
+      const mapped: UiAlert[] = res.data.map((a) => ({
+        ...a,
+        severity: severityFromScore(a.risk_score),
+      }));
+
+      setAlerts(mapped);
+    } catch (err: any) {
+      setError(err.message || "Failed to load alerts");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAlerts();
+  }, []);
+
+  /* =========================
+     Filtering logic (unchanged)
+     ========================= */
+  const nonColdAlerts = useMemo(
+    () => alerts.filter((a) => a.severity !== "COLD"),
+    [alerts]
+  );
+
+  const filteredAlerts = useMemo(() => {
+    return nonColdAlerts.filter((alert) => {
+      const matchesSearch =
+        alert.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        alert.sender.toLowerCase().includes(searchQuery.toLowerCase());
+
+      const matchesSeverity =
+        severityFilter === "ALL" || alert.severity === severityFilter;
+
+      const matchesStatus =
+        statusFilter === "ALL" || alert.status === statusFilter;
+
+      return matchesSearch && matchesSeverity && matchesStatus;
+    });
+  }, [nonColdAlerts, searchQuery, severityFilter, statusFilter]);
+
+  const openCount = nonColdAlerts.filter(
+    (a) => a.status === "OPEN"
+  ).length;
+
+  const hotOpenCount = nonColdAlerts.filter(
+    (a) => a.severity === "HOT" && a.status === "OPEN"
+  ).length;
+
+  /* =========================
+     Render states
+     ========================= */
+  if (loading) {
+    return <div className="p-6 text-muted-foreground">Loading alerts…</div>;
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 text-red-500">
+        Failed to load alerts: {error}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-slide-in">
@@ -43,7 +133,12 @@ export default function Alerts() {
             {openCount} open alerts • {hotOpenCount} critical
           </p>
         </div>
-        <Button variant="outline" size="sm" className="gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-2"
+          onClick={fetchAlerts}
+        >
           <RefreshCw className="h-4 w-4" />
           Refresh
         </Button>
@@ -63,8 +158,13 @@ export default function Alerts() {
 
         <div className="flex items-center gap-2">
           <Filter className="h-4 w-4 text-muted-foreground" />
-          
-          <Select value={severityFilter} onValueChange={(v) => setSeverityFilter(v as Severity | 'ALL')}>
+
+          <Select
+            value={severityFilter}
+            onValueChange={(v) =>
+              setSeverityFilter(v as Severity | "ALL")
+            }
+          >
             <SelectTrigger className="w-[130px] bg-card border-border">
               <SelectValue placeholder="Severity" />
             </SelectTrigger>
@@ -75,7 +175,12 @@ export default function Alerts() {
             </SelectContent>
           </Select>
 
-          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as AlertStatus | 'ALL')}>
+          <Select
+            value={statusFilter}
+            onValueChange={(v) =>
+              setStatusFilter(v as AlertStatus | "ALL")
+            }
+          >
             <SelectTrigger className="w-[130px] bg-card border-border">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
@@ -83,7 +188,9 @@ export default function Alerts() {
               <SelectItem value="ALL">All Status</SelectItem>
               <SelectItem value="OPEN">Open</SelectItem>
               <SelectItem value="RESOLVED">Resolved</SelectItem>
-              <SelectItem value="FALSE_POSITIVE">False Positive</SelectItem>
+              <SelectItem value="FALSE_POSITIVE">
+                False Positive
+              </SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -96,7 +203,9 @@ export default function Alerts() {
 
       {filteredAlerts.length === 0 && (
         <div className="text-center py-12">
-          <p className="text-muted-foreground">No alerts match your filters</p>
+          <p className="text-muted-foreground">
+            No alerts match your filters
+          </p>
         </div>
       )}
     </div>
