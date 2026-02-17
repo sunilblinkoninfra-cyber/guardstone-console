@@ -1,22 +1,30 @@
-import { Alert } from '@/types/soc';
 import { SeverityBadge } from './SeverityBadge';
 import { VerdictBadge } from './VerdictBadge';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
+import { Severity, Verdict } from '@/types/soc';
+
+export interface AlertRow {
+  id: string;
+  severity: Severity;
+  sender: string;
+  subject: string;
+  risk_score: number;
+  verdict: string;
+  status: string;
+  created_at: string;
+  analyst?: string | null;
+}
 
 interface AlertsTableProps {
-  alerts: Alert[];
+  alerts: AlertRow[];
   compact?: boolean;
   className?: string;
 }
 
 export function AlertsTable({ alerts, compact = false, className }: AlertsTableProps) {
   const navigate = useNavigate();
-
-  const handleRowClick = (alert: Alert) => {
-    navigate(`/alerts/${alert.id}`);
-  };
 
   return (
     <div className={cn('overflow-x-auto', className)}>
@@ -37,14 +45,14 @@ export function AlertsTable({ alerts, compact = false, className }: AlertsTableP
           {alerts.map((alert) => (
             <tr
               key={alert.id}
-              onClick={() => handleRowClick(alert)}
+              onClick={() => navigate(`/alerts/${alert.id}`)}
               className={cn(
                 alert.severity === 'HOT' && 'bg-severity-hot/5',
                 alert.status === 'OPEN' && alert.severity === 'HOT' && 'animate-pulse-glow'
               )}
             >
               <td className="font-mono text-xs text-muted-foreground whitespace-nowrap">
-                {formatDistanceToNow(new Date(alert.timestamp), { addSuffix: true })}
+                {formatDistanceToNow(new Date(alert.created_at), { addSuffix: true })}
               </td>
               <td>
                 <SeverityBadge severity={alert.severity} />
@@ -61,16 +69,16 @@ export function AlertsTable({ alerts, compact = false, className }: AlertsTableP
                 <td>
                   <span className={cn(
                     'font-mono text-sm',
-                    alert.riskScore >= 0.75 && 'text-severity-hot',
-                    alert.riskScore >= 0.30 && alert.riskScore < 0.75 && 'text-severity-warm',
-                    alert.riskScore < 0.30 && 'text-severity-cold'
+                    alert.risk_score >= 0.75 && 'text-severity-hot',
+                    alert.risk_score >= 0.30 && alert.risk_score < 0.75 && 'text-severity-warm',
+                    alert.risk_score < 0.30 && 'text-severity-cold'
                   )}>
-                    {Math.round(alert.riskScore * 100)}%
+                    {Math.round(alert.risk_score * 100)}%
                   </span>
                 </td>
               )}
               <td>
-                <VerdictBadge verdict={alert.verdict} showIcon={false} />
+                <VerdictBadge verdict={alert.verdict as Verdict} showIcon={false} />
               </td>
               <td>
                 <span className={cn(
@@ -82,7 +90,7 @@ export function AlertsTable({ alerts, compact = false, className }: AlertsTableP
               </td>
               {!compact && (
                 <td className="text-sm text-muted-foreground">
-                  {alert.assignedAnalyst || '—'}
+                  {alert.analyst || '—'}
                 </td>
               )}
             </tr>

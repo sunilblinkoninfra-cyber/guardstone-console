@@ -9,12 +9,12 @@ export type User = {
   role: Role;
 };
 
-export const PERMISSIONS = {
+export const PERMISSIONS: Record<string, Role[]> = {
   MARK_FALSE_POSITIVE: ["SOC_ANALYST", "SOC_ADMIN"],
   CONFIRM_MALICIOUS: ["SOC_ANALYST", "SOC_ADMIN"],
   RELEASE_EMAIL: ["SOC_ADMIN"],
   BLOCK_SENDER: ["SOC_ADMIN"],
-} as const;
+};
 
 export type Permission = keyof typeof PERMISSIONS;
 
