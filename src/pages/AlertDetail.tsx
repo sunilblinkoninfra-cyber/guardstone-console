@@ -157,8 +157,8 @@ export default function AlertDetailPage() {
         api.get<{ data: AlertDetail }>(`/alerts/${id}`),
         api.get<{ data: AuditLog[] }>(`/alerts/${id}/audit-logs`),
       ]);
-      setAlert(alertRes.data);
-      setAuditLogs(logsRes.data);
+      setAlert(alertRes.data.data);
+      setAuditLogs(logsRes.data.data);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -190,7 +190,7 @@ export default function AlertDetailPage() {
 
       await fetchAlert();
     } catch (err: any) {
-      alert(`Action failed: ${err.message}`);
+      window.alert(`Action failed: ${err.message}`);
     } finally {
       setActionLoading(false);
     }
@@ -225,7 +225,7 @@ export default function AlertDetailPage() {
               {alert.subject}
             </h1>
             <SeverityBadge severity={alert.severity} />
-            <VerdictBadge verdict={alert.verdict} />
+            <VerdictBadge verdict={alert.verdict as "SAFE" | "SUSPICIOUS" | "PHISHING"} />
           </div>
           <p className="text-sm text-muted-foreground mt-1">
             {alert.id} •{" "}

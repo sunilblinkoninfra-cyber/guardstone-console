@@ -47,7 +47,7 @@ export default function Logs() {
       .get<{ data: LogEntry[] }>("/alerts")
       .then((res) => {
         // Cold = risk_score < 0.30
-        const coldOnly = res.data.filter(
+        const coldOnly = res.data.data.filter(
           (l) => l.risk_score < 0.3
         );
         setLogs(coldOnly);

@@ -59,7 +59,7 @@ export default function Alerts() {
 
       const res = await api.get<{ data: BackendAlert[] }>("/alerts");
 
-      const mapped: UiAlert[] = res.data.map((a) => ({
+      const mapped: UiAlert[] = res.data.data.map((a) => ({
         ...a,
         severity: severityFromScore(a.risk_score),
       }));
